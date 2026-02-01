@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>AK-KAFI Pro - Powerful Admin Panel</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script src="https://adsgram.ai/sdk/v1/adsgram.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #7c5cff; --secondary: #39d98a; --bg: #060912;
+      --card: #121624; --text: #ffffff; --muted: #8e94a5;
+      --danger: #ff5c7a; --glass: rgba(255, 255, 255, 0.05); --radius: 20px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .container { max-width: 500px; margin: 0 auto; padding: 20px 15px 100px; }
+    
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 10px; background: var(--glass); border-radius: 15px; }
+    .profile-info { display: flex; align-items: center; gap: 12px; cursor: pointer; flex: 1; }
+    .avatar { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(45deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+
+    .notice-board { background: rgba(124, 92, 255, 0.1); border: 1px dashed var(--primary); padding: 12px; border-radius: 12px; margin-bottom: 20px; font-size: 13px; display: none; }
+
+    .balance-card { background: linear-gradient(135deg, #1e2640 0%, #121624 100%); padding: 20px; border-radius: var(--radius); border: 1px solid var(--glass); margin-bottom: 20px; text-align: center; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .stat-item { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid var(--glass); text-align: center; }
+    
+    .section-title { font-size: 16px; margin: 20px 0 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid var(--primary); padding-left: 10px; }
+    .task-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid var(--glass); display: flex; align-items: center; gap: 15px; margin-bottom: 12px; }
+    .task-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--glass); display: flex; align-items: center; justify-content: center; color: var(--primary); }
+    
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(18, 22, 36, 0.95); backdrop-filter: blur(15px); display: flex; justify-content: space-around; padding: 12px 0 25px; border-top: 1px solid var(--glass); z-index: 100; }
+    .nav-btn { color: var(--muted); text-decoration: none; font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: 0.3s; }
+    .nav-btn.active { color: var(--primary); transform: translateY(-5px); }
+
+    input, select { width: 100%; padding: 12px; background: var(--bg); color: white; border: 1px solid var(--glass); border-radius: 10px; margin-bottom: 10px; outline: none; }
+    .main-btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.2s; }
+    .main-btn:active { transform: scale(0.95); }
+    .main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .page { display: none; animation: fadeIn 0.3s ease; }
+    .page.active { display: block; }
+    .history-item { font-size: 11px; padding: 12px; border-bottom: 1px solid var(--glass); display: flex; justify-content: space-between; align-items: center; }
+
+    .admin-dash { background: #0c101d; border-radius: 15px; padding: 15px; border: 2px solid var(--primary); }
+    .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+    .admin-card { background: var(--glass); padding: 10px; border-radius: 10px; border-top: 2px solid var(--secondary); }
+    .admin-card b { color: var(--secondary); font-size: 14px; }
+    .admin-btn { padding: 8px 10px; border-radius: 8px; border: none; font-size: 10px; font-weight: bold; cursor: pointer; margin: 2px; flex: 1; }
+    .btn-green { background: var(--secondary); color: #000; }
+    .btn-red { background: var(--danger); color: #fff; }
+    .btn-blue { background: var(--primary); color: #fff; }
+  </style>
+</head>
+
+<body>
+  <!-- Maintenance Screen -->
+  <div id="maintenance-screen" style="display:none; text-align:center; padding:100px 20px;">
+    <i class="fas fa-tools" style="font-size:50px; color:var(--danger)"></i>
+    <h2>Under Maintenance</h2>
+    <p style="color:var(--muted)" id="maintenance-msg">We are updating the app. Please come back later.</p>
+  </div>
+
+  <div class="container" id="app-content">
+    <div class="header" onclick="adminTrigger()">
+      <div class="profile-info">
+        <div class="avatar"><i class="fas fa-user"></i></div>
+        <div>
+          <b id="uName">Loading...</b><br>
+          <span style="font-size:10px; color:var(--muted)" id="uLevelDisplay">Level 1</span>
+        </div>
+      </div>
+      <div id="uStreak" style="font-size: 12px; color: var(--secondary);"><i class="fas fa-fire"></i> <span id="streakDays">1</span> Day</div>
+    </div>
+
+    <div id="appNotice" class="notice-board"></div>
+
+    <!-- Home Page -->
+    <div id="home" class="page active">
+      <div class="balance-card">
+        <small style="color:var(--muted)">Current Cash Balance</small>
+        <div style="font-size: 32px; font-weight: bold; color: var(--secondary);"><span id="uCash">0.00</span> ৳</div>
+        <button class="main-btn" style="width:auto; margin-top:10px; padding:8px 20px; font-size:12px;" onclick="showPage('convert')">Converter</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item"><small>Approved AK-KAFI</small><br><b id="uApproved">0</b></div>
+        <div class="stat-item"><small>Pending AK-KAFI</small><br><b id="uPending">0</b></div>
+      </div>
+      <div class="section-title"><span>Daily Ads (13 Max)</span><span id="adText">0/13</span></div>
+      <div style="height:6px; background:var(--glass); border-radius:10px; overflow:hidden;"><div id="adBar" style="height:100%; background:var(--primary); width:0%;"></div></div>
+      <button class="main-btn" style="margin-top:20px;" onclick="showPage('ads')">Watch Video Ads</button>
+    </div>
+
+    <div id="tasks" class="page">
+      <div class="section-title">Exclusive Tasks</div>
+      <div id="taskList"></div>
+    </div>
+
+    <div id="ads" class="page">
+      <div class="section-title">Premium Video Ads</div>
+      <div id="adList"></div>
+    </div>
+
+    <div id="convert" class="page">
+      <div class="section-title">AK-KAFI to Cash</div>
+      <div class="stat-item">
+        <small>Rate: <span id="confRate">10</span> AK-KAFI = 1 ৳</small><br>
+        <b>Available: <span id="convAvailable">0</span> AK-KAFI</b>
+      </div>
+      <div style="margin-top:20px;">
+        <input type="number" id="convInput" placeholder="AK-KAFI Amount">
+        <button class="main-btn" onclick="processConvert()">Convert Now</button>
+      </div>
+    </div>
+
+    <div id="wallet" class="page">
+      <div class="section-title">Withdraw Options</div>
+      <select id="wdMethod" onchange="toggleWdNote()">
+        <option value="bKash">bKash</option>
+        <option value="Nagad">Nagad</option>
+        <option value="Recharge">Mobile Recharge</option>
+        <option value="FF">FF Diamond</option>
+      </select>
+      <input type="number" id="wdAmount" placeholder="Amount">
+      <input type="text" id="wdNumber" placeholder="Number / ID">
+      <div id="wdNote" style="font-size:11px; color:var(--muted); margin-bottom:10px;">Min: 300৳</div>
+      <button class="main-btn" onclick="submitWithdraw()">Withdraw Request</button>
+    </div>
+
+    <div id="team" class="page">
+      <div class="section-title">Team Referral</div>
+      <div class="stats-grid">
+        <div class="stat-item"><small>Referrals</small><br><b id="uRef">0</b></div>
+        <div class="stat-item"><small>Bonus</small><br><b>0 ৳</b></div>
+      </div>
+      <input type="text" id="refLink" readonly>
+      <button class="main-btn" onclick="copyRef()">Copy Link</button>
+    </div>
+
+    <div id="account" class="page">
+      <div class="section-title">Settings</div>
+      <div class="task-card" onclick="showPage('history')"><div class="task-icon"><i class="fas fa-receipt"></i></div><div style="flex:1"><b>History</b></div></div>
+      <div class="task-card" onclick="tg.showAlert('Support: @admin')"><div class="task-icon"><i class="fas fa-headset"></i></div><div style="flex:1"><b>Support</b></div></div>
+      <div class="task-card" style="border-color:var(--danger)" onclick="confirmReset()"><div class="task-icon" style="color:var(--danger)"><i class="fas fa-trash"></i></div><div style="flex:1"><b>Reset Data</b></div></div>
+    </div>
+
+    <!-- Power Admin Panel -->
+    <div id="adminPanel" class="page">
+      <div class="section-title">POWER ADMIN PANEL</div>
+      <div class="admin-dash">
+        <div class="admin-grid">
+            <div class="admin-card"><small>App Mode</small><br><b id="admMainText">Online</b></div>
+            <div class="admin-card"><small>Conv. Rate</small><br><b id="admRateText">10</b></div>
+        </div>
+        <div class="section-title">Global Controls</div>
+        <div style="display:flex; gap:5px; margin-bottom:15px;">
+            <button class="admin-btn btn-blue" onclick="adminToggleMaintenance()">Maintenance</button>
+            <button class="admin-btn btn-blue" onclick="adminSetNotice()">Set Notice</button>
+            <button class="admin-btn btn-green" onclick="adminSetRate()">Set Rate</button>
+        </div>
+        <div class="section-title">User Management</div>
+        <div style="display:flex; gap:5px; margin-bottom:15px;">
+          <button class="admin-btn btn-blue" onclick="adminEditUser()">Edit User Balance</button>
+          <button class="admin-btn btn-red" onclick="adminResetAllAds()">Reset All Ads</button>
+        </div>
+        <div class="section-title">All Withdraw Requests</div>
+        <div id="adminReqList" style="max-height: 250px; overflow-y: auto; background: var(--bg); border-radius:10px; padding:5px;"></div>
+      </div>
+      <button class="main-btn" style="margin-top:20px; background:var(--muted)" onclick="showPage('home')">Exit Admin</button>
+    </div>
+
+    <div id="history" class="page">
+      <div class="section-title">Transactions</div>
+      <div id="hList"></div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-btn active" id="nav-home" onclick="showPage('home', this)"><i class="fas fa-home"></i>Home</div>
+    <div class="nav-btn" onclick="showPage('tasks', this)"><i class="fas fa-list"></i>Task</div>
+    <div class="nav-btn" onclick="showPage('wallet', this)"><i class="fas fa-wallet"></i>Wallet</div>
+    <div class="nav-btn" onclick="showPage('team', this)"><i class="fas fa-users"></i>Team</div>
+    <div class="nav-btn" onclick="showPage('account', this)"><i class="fas fa-cog"></i>Account</div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    // Firebase Config (Keep your original config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyC8sVx3xOxiw4fEc-gjd6r0sWSw-Yd1I_I",
+      authDomain: "ak-kafierning.firebaseapp.com",
+      projectId: "ak-kafierning",
+      storageBucket: "ak-kafierning.firebasestorage.app",
+      messagingSenderId: "510307681647",
+      appId: "1:510307681647:web:339d515e6181337471149a"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const userId = tg.initDataUnsafe?.user?.id || "local_user";
+
+    // AdsGram Setup
+    const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "YOUR_BLOCK_ID" }) : null; 
+
+    // Application State
+    let state = {
+      cash: 0, approvedCoins: 0, pendingCoins: 0, dailyAds: 0,
+      history: [], streak: 1, lastLoginDate: "",
+      taskStates: {}, pendingList: []
+    };
+
+    let globalSettings = { maintenance: false, notice: "", convRate: 10, minWD: 300, minRecharge: 31 };
+    let allWithdrawals = {};
+
+    // Sync User Data
+    db.ref('users/' + userId).on('value', (snap) => {
+        if (snap.val()) { state = snap.val(); render(); }
+    });
+
+    // Sync Global Settings
+    db.ref('app_settings').on('value', (snap) => {
+        if (snap.val()) { globalSettings = snap.val(); render(); }
+    });
+
+    // Sync Global Withdrawals (For Admin)
+    db.ref('all_withdrawals').on('value', (snap) => {
+        allWithdrawals = snap.val() || {};
+        renderAdminList();
+    });
+
+    function save() { db.ref('users/' + userId).set(state); }
+    function saveGlobal() { db.ref('app_settings').set(globalSettings); }
+
+    function render() {
+      // Maintenance Check
+      if(globalSettings.maintenance && userId !== "510307681647") { // Admin ID skip maintenance
+          document.getElementById('app-content').style.display = 'none';
+          document.getElementById('maintenance-screen').style.display = 'block';
+      } else {
+          document.getElementById('app-content').style.display = 'block';
+          document.getElementById('maintenance-screen').style.display = 'none';
+      }
+
+      // Notice Board
+      const nb = document.getElementById('appNotice');
+      if(globalSettings.notice) { nb.style.display = 'block'; nb.innerText = "📢 " + globalSettings.notice; }
+      else { nb.style.display = 'none'; }
+
+      // UI Updates
+      document.getElementById('uCash').innerText = (state.cash || 0).toFixed(2);
+      document.getElementById('uApproved').innerText = state.approvedCoins || 0;
+      document.getElementById('uPending').innerText = state.pendingCoins || 0;
+      document.getElementById('convAvailable').innerText = state.approvedCoins || 0;
+      document.getElementById('confRate').innerText = globalSettings.convRate;
+      document.getElementById('adText').innerText = `${state.dailyAds || 0}/13`;
+      document.getElementById('adBar').style.width = ((state.dailyAds || 0) / 13 * 100) + "%";
+      document.getElementById('streakDays').innerText = state.streak || 1;
+      
+      // Admin Dash UI
+      document.getElementById('admMainText').innerText = globalSettings.maintenance ? "Maintenance" : "Online";
+      document.getElementById('admRateText').innerText = globalSettings.convRate;
+
+      if(tg.initDataUnsafe?.user) {
+        document.getElementById('uName').innerText = tg.initDataUnsafe.user.first_name;
+        document.getElementById('refLink').value = "https://t.me/AK_KAFI_Bot?start=" + tg.initDataUnsafe.user.id;
+      }
+
+      // Task Rendering
+      renderTasks();
+      
+      // History Rendering
+      document.getElementById('hList').innerHTML = (state.history || []).map(h => `
+        <div class="history-item"><span>${h.m}</span><span style="color:${h.v.includes('-')?'var(--danger)':'var(--secondary)'}">${h.v}</span></div>`).join('');
+    }
+
+    function renderTasks() {
+      const taskData = [{id: "t1", t: "Join Telegram", r: 50}, {id: "t2", t: "Subscribe channel", r: 30}];
+      document.getElementById('taskList').innerHTML = taskData.map(task => {
+          let s = (state.taskStates || {})[task.id];
+          let btn = !s ? `<button class="main-btn" style="width:auto; padding:5px 15px;" onclick="startTask('${task.id}')">Start</button>` :
+                    s.status === 'waiting' ? `<button class="main-btn" style="width:auto; padding:5px 15px;" disabled id="timer-${task.id}">Wait</button>` :
+                    `<button class="main-btn" style="width:auto; padding:5px 15px; background:var(--secondary); color:#000;" onclick="claimTask('${task.id}', ${task.r}, '${task.t}')">Claim</button>`;
+          return `<div class="task-card"><div class="task-icon"><i class="fas fa-star"></i></div><div style="flex:1"><b>${task.t}</b><br><small style="color:var(--secondary)">+${task.r} AK-KAFI</small></div>${btn}</div>`;
+      }).join('');
+
+      let adBtn = (state.dailyAds || 0) >= 13 ? `<button class="main-btn" style="width:auto; padding:5px 15px;" disabled>Limit</button>` :
+                  `<button class="main-btn" style="width:auto; padding:5px 15px;" onclick="showAdsGram()">Watch</button>`;
+      document.getElementById('adList').innerHTML = `<div class="task-card"><div class="task-icon"><i class="fas fa-video"></i></div><div style="flex:1"><b>Video Ad</b><br><small style="color:var(--secondary)">+1 AK-KAFI</small></div>${adBtn}</div>`;
+    }
+
+    function showAdsGram() {
+        if(!AdController) { tg.showAlert("Ad SDK not ready"); return; }
+        AdController.show().then(() => {
+            claimTask('ad', 1, 'Video Ad', true);
+            tg.showAlert("You got 1 Coin!");
+        }).catch(() => tg.showAlert("Ad failed to load."));
+    }
+
+    function startTask(id) { 
+        if(!state.taskStates) state.taskStates = {};
+        state.taskStates[id] = { startTime: Date.now(), status: 'waiting' }; 
+        save(); 
+    }
+
+    function claimTask(id, reward, title, isAd) {
+        if(isAd) state.dailyAds = (state.dailyAds || 0) + 1;
+        state.pendingCoins = (state.pendingCoins || 0) + reward;
+        if(!state.pendingList) state.pendingList = [];
+        state.pendingList.push({r: reward, t: title, time: Date.now()});
+        if(state.taskStates) delete state.taskStates[id];
+        save();
+        tg.showAlert("Success! Coins will be approved in 30s.");
+    }
+
+    function processConvert() {
+      let a = parseInt(document.getElementById('convInput').value);
+      let rate = globalSettings.convRate || 10;
+      if(isNaN(a) || a < rate) { tg.showAlert(`Min ${rate} AK-KAFI required.`); return; }
+      if(state.approvedCoins >= a) {
+        let earned = a / rate;
+        state.approvedCoins -= a; 
+        state.cash = (state.cash || 0) + earned;
+        if(!state.history) state.history = [];
+        state.history.unshift({m: "Converted", v: `+${earned.toFixed(2)}৳`});
+        save();
+        tg.showAlert("Converted!");
+      } else tg.showAlert("Insufficient Coins.");
+    }
+
+    function submitWithdraw() {
+      let a = parseInt(document.getElementById('wdAmount').value);
+      let n = document.getElementById('wdNumber').value;
+      let m = document.getElementById('wdMethod').value;
+      let limit = m === "Recharge" ? globalSettings.minRecharge : globalSettings.minWD;
+      
+      if(state.cash >= a && a >= limit && n.length > 5) {
+        state.cash -= a;
+        const wdKey = db.ref('all_withdrawals').push().key;
+        const wdData = { id: wdKey, uid: userId, uName: tg.initDataUnsafe?.user?.first_name || "User", amt: a, num: n, method: m, status: "Pending", time: Date.now() };
+        
+        db.ref('all_withdrawals/' + wdKey).set(wdData);
+        if(!state.history) state.history = [];
+        state.history.unshift({m: `Withdraw ${m}`, v: `-${a}৳`});
+        save();
+        tg.showAlert("Request Submitted!");
+      } else tg.showAlert("Invalid amount or low balance.");
+    }
+
+    // --- ADMIN FUNCTIONS ---
+    let adminClick = 0;
+    function adminTrigger() {
+      adminClick++;
+      if(adminClick >= 5) {
+        adminClick = 0;
+        let pass = prompt("Admin Password:");
+        if(pass === "admin123") showPage('adminPanel');
+      }
+    }
+
+    function renderAdminList() {
+        const list = document.getElementById('adminReqList');
+        const keys = Object.keys(allWithdrawals);
+        if(!keys.length) { list.innerHTML = "<p style='text-align:center; font-size:12px;'>No Requests</p>"; return; }
+        
+        list.innerHTML = keys.reverse().map(k => {
+            const w = allWithdrawals[k];
+            if(w.status !== 'Pending') return '';
+            return `
+            <div class="history-item" style="flex-direction:column; align-items:flex-start; background:var(--glass); margin-bottom:5px; padding:10px; border-radius:10px;">
+                <div style="width:100%; display:flex; justify-content:space-between;">
+                    <b>${w.uName} (${w.method})</b>
+                    <b style="color:var(--secondary)">${w.amt}৳</b>
+                </div>
+                <small>Number: ${w.num}</small>
+                <div style="display:flex; width:100%; gap:5px; margin-top:5px;">
+                    <button class="admin-btn btn-green" onclick="adminWdAction('${k}', 'Paid')">Approve</button>
+                    <button class="admin-btn btn-red" onclick="adminWdAction('${k}', 'Rejected')">Reject</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function adminWdAction(key, status) {
+        const wd = allWithdrawals[key];
+        if(status === 'Rejected') {
+            // Refund to user
+            db.ref('users/' + wd.uid + '/cash').transaction(c => (c || 0) + wd.amt);
+        }
+        db.ref('all_withdrawals/' + key + '/status').set(status);
+        tg.showAlert("Request " + status);
+    }
+
+    function adminToggleMaintenance() { globalSettings.maintenance = !globalSettings.maintenance; saveGlobal(); }
+    function adminSetNotice() { globalSettings.notice = prompt("Enter Global Notice:", globalSettings.notice); saveGlobal(); }
+    function adminSetRate() { globalSettings.convRate = parseInt(prompt("Coins per 1 Taka:", globalSettings.convRate)); saveGlobal(); }
+    
+    function adminEditUser() {
+        let targetId = prompt("Enter User Telegram ID:");
+        let newCash = parseFloat(prompt("Enter New Cash Balance:"));
+        if(targetId && !isNaN(newCash)) {
+            db.ref('users/' + targetId + '/cash').set(newCash);
+            tg.showAlert("User balance updated!");
+        }
+    }
+
+    function adminResetAllAds() {
+        if(confirm("Reset daily ads for ALL users?")) {
+            db.ref('users').once('value', snap => {
+                snap.forEach(user => {
+                    db.ref('users/' + user.key + '/dailyAds').set(0);
+                });
+            });
+            tg.showAlert("All ads reset!");
+        }
+    }
+
+    // --- SHARED LOGIC ---
+    function showPage(id, btn) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      if(btn) { document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+    }
+
+    function copyRef() {
+        navigator.clipboard.writeText(document.getElementById("refLink").value);
+        tg.showAlert("Link Copied!");
+    }
+
+    // Background Timer for Pending Coins
+    setInterval(() => {
+        let now = Date.now();
+        let changed = false;
+        
+        // Timer updates
+        if(state.taskStates) {
+            for (let id in state.taskStates) {
+                let task = state.taskStates[id];
+                if(task.status === 'waiting') {
+                    let elapsed = (now - task.startTime) / 1000;
+                    if(elapsed >= 20) { task.status = 'ready'; changed = true; }
+                    else {
+                        let el = document.getElementById('timer-'+id);
+                        if(el) el.innerText = Math.ceil(20 - elapsed) + "s";
+                    }
+                }
+            }
+        }
+
+        // Auto approve pending
+        if(state.pendingList && state.pendingList.length > 0) {
+            state.pendingList = state.pendingList.filter(i => {
+                if(now - i.time > 30000) { 
+                    state.approvedCoins = (state.approvedCoins || 0) + i.r; 
+                    state.pendingCoins = (state.pendingCoins || 0) - i.r; 
+                    changed = true; return false; 
+                }
+                return true;
+            });
+        }
+        if(changed) save();
+    }, 1000);
+
+    // Initial Login & Streak
+    const today = new Date().toDateString();
+    if (state.lastLoginDate !== today) {
+      if (state.lastLoginDate === new Date(Date.now() - 86400000).toDateString()) state.streak++; else state.streak = 1;
+      state.lastLoginDate = today; state.dailyAds = 0;
+      save();
+    }
+    
+    function toggleWdNote() {
+        let m = document.getElementById('wdMethod').value;
+        document.getElementById('wdNote').innerText = m === "Recharge" ? "Min " + globalSettings.minRecharge + "৳" : "Min " + globalSettings.minWD + "৳";
+    }
+
+    render();
+  </script>
+</body>
+</html>
